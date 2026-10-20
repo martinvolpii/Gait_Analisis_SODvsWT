@@ -1,0 +1,40 @@
+name: Reproducir análisis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  analisis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Instalar dependencias de Python
+        run: pip install -r requirements.txt
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Instalar paquetes de R
+        run: Rscript scripts/R/instalar_paquetes_R.R
+
+      - name: Ejecutar el análisis completo
+        run: |
+          python ejecutar_analisis.py > registro.txt 2>&1 || { tail -n 40 registro.txt; exit 1; }
+
+      - name: Comprobar que se generaron las salidas
+        run: |
+          test -s resultados/Analisis_marcha_v2/Resultados_marcha_v2.xlsx
+          test -s resultados/Analisis_marcha_v2/RESUMEN_todas_las_variables.csv
+          test -s resultados/Analisis_marcha_v2/R/rodilla_R_modelo_mixto.csv
+          test "$(( $(wc -l < resultados/intermedios/sesiones_crudo.csv) - 1 ))" -eq 71
